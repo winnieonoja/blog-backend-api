@@ -4,6 +4,7 @@ import {sendError, sendSuccess} from "../utils/response.js"
 import { authMiddleware } from "../middleware/auth.middleware.js";
 import User from "../models/user.model.js";
 import cloudinary from "../config/cloudinary.js";
+import Comment from "../models/comment.model.js"
 
 //CREATE POST
 export const createPost = async (req, res)=>{
@@ -40,30 +41,95 @@ export const createPost = async (req, res)=>{
 }
 
 // GET ALL POST
-export const getAllPost = async (req, res)=>{
-    try {
-       const posts = await Post.find().populate("author", "userName email").sort({ createdAt: -1 });
-       const totalPosts = await Post.countDocuments();
-        return sendSuccess(
-          res,
-          200,
-          "Post fetched successfully",
-          {
-            totalPosts,
-            posts
-          }
-        );
-    } catch (error) {
-      console.error("Error fetching all post:", error);
+// export const getAllPost = async (req, res)=>{
+//     try {
+//        const posts = await Post.find().populate("author", "userName email").sort({ createdAt: -1 });
+//        const totalPosts = await Post.countDocuments();
+//         return sendSuccess(
+//           res,
+//           200,
+//           "Post fetched successfully",
+//           {
+//             totalPosts,
+//             posts
+//           }
+//         );
+//     } catch (error) {
+//       console.error("Error fetching all post:", error);
   
-       return sendError(
-            res,
-            500,
-            "Failed to fetch all post",
-            error.message
-          );
-    }
-}
+//        return sendError(
+//             res,
+//             500,
+//             "Failed to fetch all post",
+//             error.message
+//           );
+//     }
+// }
+
+// GET ALL POSTS WITH LIKES AND COMMENT COUNTS
+export const getAllPost = async (req, res) => {
+  try {
+    const posts = await Post.find()
+      .populate("author", "userName email")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const totalPosts = await Post.countDocuments();
+
+    const postIds = posts.map((post) => post._id);
+
+    // Count comments belonging to each post
+    const commentCounts = await Comment.aggregate([
+      {
+        $match: {
+          post: { $in: postIds }
+        }
+      },
+      {
+        $group: {
+          _id: "$post",
+          total: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Create a lookup for comment counts
+    const commentMap = new Map(
+      commentCounts.map((item) => [
+        item._id.toString(),
+        item.total
+      ])
+    );
+
+    // Attach counts to each post
+    const postsWithCounts = posts.map((post) => ({
+      ...post,
+      likesCount: post.likes?.length ?? 0,
+      commentsCount:
+        commentMap.get(post._id.toString()) ?? 0
+    }));
+
+    return sendSuccess(
+      res,
+      200,
+      "Posts fetched successfully",
+      {
+        totalPosts,
+        posts: postsWithCounts
+      }
+    );
+
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+
+    return sendError(
+      res,
+      500,
+      "Failed to fetch posts",
+      error.message
+    );
+  }
+};
 
 // GET ALL POSTS BY A PARTICULAR USER
 export const allUserPost = async (req, res) => {
@@ -252,6 +318,55 @@ export const updatePost = async (req, res) => {
 
 
 // LIKE POST
+// export const likePost = async (req, res) => {
+//   try {
+//     const { postId } = req.params;
+//     const userId = req.userId;
+
+//     const post = await Post.findById(postId);
+
+//     if (!post) {
+//       return sendError(res, 404, "Post not found");
+//     }
+
+//     const alreadyLiked = post.likes.some(
+//       (id) => id.toString() === userId.toString()
+//     );
+
+//     if (alreadyLiked) {
+//       return sendError(res, 400, "You already liked this post");
+//     }
+
+//     // Add user to likes
+//     post.likes.push(userId);
+
+//     // Remove user from dislikes if present
+//     post.dislikes = post.dislikes.filter(
+//       (id) => id.toString() !== userId.toString()
+//     );
+
+//     await post.save();
+
+//     return sendSuccess(
+//       res,
+//       200,
+//       "Post liked successfully",
+//       post
+//     );
+
+//   } catch (error) {
+//     console.error("Like post error:", error);
+
+//     return sendError(
+//       res,
+//       500,
+//       "Failed to like post",
+//       error.message
+//     );
+//   }
+// };
+
+// LIKE AND UNLIKE POST
 export const likePost = async (req, res) => {
   try {
     const { postId } = req.params;
@@ -268,24 +383,28 @@ export const likePost = async (req, res) => {
     );
 
     if (alreadyLiked) {
-      return sendError(res, 400, "You already liked this post");
+      // Remove like
+      post.likes.pull(userId);
+    } else {
+      // Add like
+      post.likes.addToSet(userId);
+
+      // Remove an existing dislike
+      post.dislikes.pull(userId);
     }
-
-    // Add user to likes
-    post.likes.push(userId);
-
-    // Remove user from dislikes if present
-    post.dislikes = post.dislikes.filter(
-      (id) => id.toString() !== userId.toString()
-    );
 
     await post.save();
 
     return sendSuccess(
       res,
       200,
-      "Post liked successfully",
-      post
+      alreadyLiked
+        ? "Post unliked successfully"
+        : "Post liked successfully",
+      {
+        liked: !alreadyLiked,
+        likesCount: post.likes.length
+      }
     );
 
   } catch (error) {
@@ -294,7 +413,37 @@ export const likePost = async (req, res) => {
     return sendError(
       res,
       500,
-      "Failed to like post",
+      "Failed to update like",
+      error.message
+    );
+  }
+};
+
+// GET POSTS LIKED BY LOGGED-IN USER
+export const getMyLikedPosts = async (req, res) => {
+  try {
+    const posts = await Post.find({
+      likes: req.userId
+    })
+      .select("_id")
+      .lean();
+
+    const likedPostIds = posts.map((post) =>
+      post._id.toString()
+    );
+
+    return sendSuccess(
+      res,
+      200,
+      "Liked posts fetched successfully",
+      likedPostIds
+    );
+
+  } catch (error) {
+    return sendError(
+      res,
+      500,
+      "Failed to fetch liked posts",
       error.message
     );
   }

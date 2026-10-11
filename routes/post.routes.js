@@ -1,5 +1,5 @@
 import express from 'express';
-import { createPost, getAllPost, allUserPost, getSinglePost, deletePost, updatePost, likePost, dislikePost } from '../controllers/post.controller.js';
+import { createPost, getAllPost, allUserPost, getSinglePost, deletePost, updatePost, likePost, getMyLikedPosts, dislikePost } from '../controllers/post.controller.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import upload from "../middleware/upload.middleware.js";
 
@@ -12,6 +12,7 @@ router.delete("/:postId", authMiddleware, deletePost);
 router.patch("/:postId", authMiddleware, upload.single("image"), updatePost);
 router.patch("/like/:postId", authMiddleware, likePost);
 router.patch("/dislike/:postId", authMiddleware, dislikePost);
+router.get( "/my-liked-posts", authMiddleware, getMyLikedPosts );
 
 // get all post by a user
 router.get("/user/:userId", allUserPost);
