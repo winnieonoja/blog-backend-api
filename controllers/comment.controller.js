@@ -179,3 +179,33 @@ export const deleteComment = async (req, res) => {
     );
   }
 };
+
+// GET TOTAL COMMENTS WRITTEN BY LOGGED-IN USER
+export const getMyCommentCount = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    const totalComments = await Comment.countDocuments({
+      author: userId
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "User comment count fetched successfully",
+      {
+        totalComments
+      }
+    );
+
+  } catch (error) {
+    console.error("Get user comment count error:", error);
+
+    return sendError(
+      res,
+      500,
+      "Failed to fetch user comment count",
+      error.message
+    );
+  }
+};
