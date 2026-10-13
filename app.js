@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended:true }));
 
 app.get("/", (req,res) =>{
-  res.status(200).json({message: "Welcome to the Node.js MYQL API"});
+  res.status(200).json({message: "Welcome to the Node.js Blog API"});
 })
 
 // RENDER ROUTES
