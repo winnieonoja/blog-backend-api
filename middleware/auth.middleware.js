@@ -42,23 +42,42 @@ export const authMiddleware = (req, res, next)=>{
   }
 };
 
-
 export const authorizeRoles = (...allowedRoles) => {
-  return (req, res, next) => {
-     if(!req.userRole){
-            return res.status(401).json({
-                success: false,
-                message: "Authentication required",
-            })
-        }
+  return async (req, res, next) => {
+    try {
+      if (!req.userId) {
+        return sendError(
+          res,
+          401,
+          "Authentication required"
+        );
+      }
 
-    if (!allowedRoles.includes(req.userRole)) {
-      return res.status(403).json({
-        message: "You do not have permission to perform this action",
-      });
+      const user = await User.findById(req.userId);
+      
+      if (!user) {
+        return sendError(res, 401, "User not found");
+      }
+
+      if (!allowedRoles.includes(user.role)) {
+        return sendError(
+          res,
+          403,
+          "You do not have permission to perform this action"
+        );
+      }
+
+      req.userRole = user.role;
+
+      next();
+
+    } catch (error) {
+      return sendError(
+        res,
+        500,
+        "Authorization failed",
+        error.message
+      );
     }
-
-    next();
   };
 };
-

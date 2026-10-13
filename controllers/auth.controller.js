@@ -4,8 +4,6 @@ import User from "../models/user.model.js";
 import { sendError, sendSuccess } from "../utils/response.js";
 
 
-
-
 // register user 
 export const registerUser = async (req, res) => {
   try{
@@ -94,7 +92,6 @@ return sendSuccess(
 };
 
 
-
 // login user
 export const loginUser = async (req, res) => {
   try{
@@ -138,7 +135,6 @@ export const loginUser = async (req, res) => {
       {expiresIn: "7d",}
     );
 
-
     return sendSuccess(
   res,
   200,
@@ -170,3 +166,4 @@ export const loginUser = async (req, res) => {
     );
   }
 };
+
