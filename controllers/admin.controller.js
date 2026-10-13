@@ -93,3 +93,35 @@ export const getAllUsers = async (req, res) => {
     );
   }
 };
+
+// GET ALL BLOG COMMENTS
+export const getAllComments = async (req, res) => {
+  try {
+
+    const comments = await Comment.find()
+      .populate("author", "userName email")
+      .populate("post", "title")
+      .sort({ createdAt: -1 });
+
+    return sendSuccess(
+      res,
+      200,
+      "All comments fetched successfully",
+      {
+        totalComments: comments.length,
+        comments
+      }
+    );
+
+  } catch (error) {
+
+    console.error("Get all comments error:", error);
+
+    return sendError(
+      res,
+      500,
+      "Failed to fetch comments"
+    );
+
+  }
+};
