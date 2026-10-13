@@ -60,3 +60,36 @@ export const getDashboardStats = async (req, res) => {
     );
   }
 };
+
+// GET ALL REGISTERED USERS
+export const getAllUsers = async (req, res) => {
+  try {
+
+    const users = await User.find()
+      .select("firstName lastName userName email role createdAt")
+      .sort({ createdAt: -1 });
+
+    const totalUsers = await User.countDocuments();
+
+    return sendSuccess(
+      res,
+      200,
+      "Users fetched successfully",
+      {
+        totalUsers,
+        users
+      }
+    );
+
+  } catch (error) {
+
+    console.error("Get all users error:", error);
+
+    return sendError(
+      res,
+      500,
+      "Failed to fetch users",
+      error.message
+    );
+  }
+};
